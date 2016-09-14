@@ -42,6 +42,13 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
     @IBInspectable public var URLSelectedColor: UIColor? {
         didSet { updateTextStorage(parseText: false) }
     }
+    @IBInspectable public var mailColor: UIColor = .blueColor() {
+        didSet { updateTextStorage(parseText: false) }
+    }
+    @IBInspectable public var mailSelectedColor: UIColor? {
+        didSet { updateTextStorage(parseText: false) }
+    }
+
     public var customColor: [ActiveType : UIColor] = [:] {
         didSet { updateTextStorage(parseText: false) }
     }
@@ -63,6 +70,10 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
 
     public func handleURLTap(handler: (NSURL) -> ()) {
         urlTapHandler = handler
+    }
+
+    public func handleMailTap(handler: (String) -> ()) {
+        mailTapHandler = handler
     }
 
     public func handleCustomTap(for type: ActiveType, handler: (String) -> ()) {
@@ -179,6 +190,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             case .Mention(let userHandle): didTapMention(userHandle)
             case .Hashtag(let hashtag): didTapHashtag(hashtag)
             case .URL(let originalURL, _): didTapStringURL(originalURL)
+            case .Mail(let url): didTapMail(url)
             case .Custom(let element): didTap(element, for: selectedElement.type)
             }
 
@@ -205,10 +217,13 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
     private var mentionTapHandler: ((String) -> ())?
     private var hashtagTapHandler: ((String) -> ())?
     private var urlTapHandler: ((NSURL) -> ())?
+    private var mailTapHandler: ((String) -> ())?
     private var customTapHandlers: [ActiveType : ((String) -> ())] = [:]
 
     private var mentionFilterPredicate: ((String) -> Bool)?
     private var hashtagFilterPredicate: ((String) -> Bool)?
+    private var mailFilterPredicate: ((String) -> Bool)?
+
 
     private var selectedElement: ElementTuple?
     private var heightCorrection: CGFloat = 0
@@ -284,6 +299,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             case .Mention: attributes[NSForegroundColorAttributeName] = mentionColor
             case .Hashtag: attributes[NSForegroundColorAttributeName] = hashtagColor
             case .URL: attributes[NSForegroundColorAttributeName] = URLColor
+            case .Mail: attributes[NSForegroundColorAttributeName] = mailColor
             case .Custom: attributes[NSForegroundColorAttributeName] = customColor[type] ?? defaultCustomColor
             }
 
@@ -311,13 +327,15 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
 
         for type in enabledTypes where type != .URL{
             var filter: ((String) -> Bool)? = nil
-            if type == .Mention {
-                filter = mentionFilterPredicate
-            } else if type == .Hashtag {
-                filter = hashtagFilterPredicate
+            switch type {
+            case .Mention: filter = mentionFilterPredicate
+            case .Hashtag: filter = hashtagFilterPredicate
+            case .Mail: filter = mailFilterPredicate
+            default: break
             }
-            let hashtagElements = ActiveBuilder.createElements(type, from: textString, range: textRange, filterPredicate: filter)
-            activeElements[type] = hashtagElements
+
+            let elements = ActiveBuilder.createElements(type, from: textString, range: textRange, filterPredicate: filter)
+            activeElements[type] = elements
         }
 
         return textString
@@ -356,6 +374,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             case .Mention: selectedColor = mentionSelectedColor ?? mentionColor
             case .Hashtag: selectedColor = hashtagSelectedColor ?? hashtagColor
             case .URL: selectedColor = URLSelectedColor ?? URLColor
+            case .Mail: selectedColor = mailSelectedColor ?? mailColor
             case .Custom:
                 let possibleSelectedColor = customSelectedColor[selectedElement.type] ?? customColor[selectedElement.type]
                 selectedColor = possibleSelectedColor ?? defaultCustomColor
@@ -367,6 +386,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             case .Mention: unselectedColor = mentionColor
             case .Hashtag: unselectedColor = hashtagColor
             case .URL: unselectedColor = URLColor
+            case .Mail: unselectedColor = mailColor
             case .Custom: unselectedColor = customColor[selectedElement.type] ?? defaultCustomColor
             }
             attributes[NSForegroundColorAttributeName] = unselectedColor
@@ -413,11 +433,11 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
         if onTouch(touch) { return }
         super.touchesMoved(touches, withEvent: event)
     }
-    
-    public override func touchesCancelled(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        guard let touch = touches.first else { return }
+
+    public override func touchesCancelled(touches: Set<UITouch>?, withEvent event: UIEvent?) {
+        guard let touch = touches?.first else { return }
         onTouch(touch)
-        super.touchesCancelled(touches, withEvent: event)
+        super.touchesCancelled(touches!, withEvent: event)
     }
 
     public override func touchesEnded(touches: Set<UITouch>, withEvent event: UIEvent?) {
@@ -450,6 +470,15 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
         }
         urlHandler(url)
     }
+
+    private func didTapMail(mail: String) {
+        guard let mailHandler = mailTapHandler else {
+            delegate?.didSelectText(mail, type: .Mail)
+            return
+        }
+        mailHandler(mail)
+    }
+
 
     private func didTap(element: String, for type: ActiveType) {
         guard let elementHandler = customTapHandlers[type] else {
