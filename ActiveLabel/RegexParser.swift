@@ -21,5 +21,4 @@ struct RegexParser {
         guard let elementRegex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
         return elementRegex.matches(in: text, options: [], range: range)
     }
-    
 }

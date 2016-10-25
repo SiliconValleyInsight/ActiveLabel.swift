@@ -10,7 +10,7 @@ import Foundation
 import UIKit
 
 public protocol ActiveLabelDelegate: class {
-    func didSelectText(_ text: String, type: ActiveType)
+    func didSelect(_ text: String, type: ActiveType)
 }
 
 typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveType)
@@ -149,6 +149,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
 
 
     // MARK: - customzation
+    @discardableResult
     open func customize(_ block: (_ label: ActiveLabel) -> ()) -> ActiveLabel {
         _customizing = true
         block(self)
@@ -158,7 +159,8 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
     }
 
     // MARK: - Auto layout
-    open override var intrinsicContentSize : CGSize {
+
+    open override var intrinsicContentSize: CGSize {
         let superSize = super.intrinsicContentSize
         textContainer.size = CGSize(width: superSize.width, height: CGFloat.greatestFiniteMagnitude)
         let size = layoutManager.usedRect(for: textContainer)
@@ -172,7 +174,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
 
         switch touch.phase {
         case .began, .moved:
-            if let element = elementAtLocation(location) {
+            if let element = element(at: location) {
                 if element.range.location != selectedElement?.range.location || element.range.length != selectedElement?.range.length {
                     updateAttributesWhenSelected(false)
                     selectedElement = element
@@ -224,7 +226,6 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
     fileprivate var hashtagFilterPredicate: ((String) -> Bool)?
     fileprivate var mailFilterPredicate: ((String) -> Bool)?
 
-
     fileprivate var selectedElement: ElementTuple?
     fileprivate var heightCorrection: CGFloat = 0
     fileprivate lazy var textStorage = NSTextStorage()
@@ -245,7 +246,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
     fileprivate func updateTextStorage(parseText: Bool = true) {
         if _customizing { return }
         // clean up previous active elements
-        guard let attributedText = attributedText , attributedText.length > 0 else {
+        guard let attributedText = attributedText, attributedText.length > 0 else {
             clearActiveElements()
             textStorage.setAttributedString(NSAttributedString())
             setNeedsDisplay()
@@ -310,7 +311,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
     }
 
     /// use regex check all link ranges
-    fileprivate func parseTextAndExtractActiveElements(_ attrString: NSMutableAttributedString) -> String {
+    fileprivate func parseTextAndExtractActiveElements(_ attrString: NSAttributedString) -> String {
         var textString = attrString.string
         var textLength = textString.utf16.count
         var textRange = NSRange(location: 0, length: textLength)
@@ -325,7 +326,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             activeElements[.url] = urlElements
         }
 
-        for type in enabledTypes where type != .url{
+        for type in enabledTypes where type != .url {
             var filter: ((String) -> Bool)? = nil
             switch type {
             case .mention: filter = mentionFilterPredicate
@@ -334,7 +335,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             default: break
             }
 
-            let elements = ActiveBuilder.createElements(type, from: textString, range: textRange, filterPredicate: filter)
+            let elements = ActiveBuilder.createElements(type: type, from: textString, range: textRange, filterPredicate: filter)
             activeElements[type] = elements
         }
 
@@ -397,7 +398,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
         setNeedsDisplay()
     }
 
-    fileprivate func elementAtLocation(_ location: CGPoint) -> ElementTuple? {
+    fileprivate func element(at location: CGPoint) -> ElementTuple? {
         guard textStorage.length > 0 else {
             return nil
         }
@@ -434,10 +435,10 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
         super.touchesMoved(touches, with: event)
     }
 
-    open override func touchesCancelled(_ touches: Set<UITouch>?, with event: UIEvent?) {
-        guard let touch = touches?.first else { return }
-        onTouch(touch)
-        super.touchesCancelled(touches!, with: event)
+    open override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else { return }
+        _ = onTouch(touch)
+        super.touchesCancelled(touches, with: event)
     }
 
     open override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -449,7 +450,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
     //MARK: - ActiveLabel handler
     fileprivate func didTapMention(_ username: String) {
         guard let mentionHandler = mentionTapHandler else {
-            delegate?.didSelectText(username, type: .mention)
+            delegate?.didSelect(username, type: .mention)
             return
         }
         mentionHandler(username)
@@ -457,7 +458,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
 
     fileprivate func didTapHashtag(_ hashtag: String) {
         guard let hashtagHandler = hashtagTapHandler else {
-            delegate?.didSelectText(hashtag, type: .hashtag)
+            delegate?.didSelect(hashtag, type: .hashtag)
             return
         }
         hashtagHandler(hashtag)
@@ -465,7 +466,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
 
     fileprivate func didTapStringURL(_ stringURL: String) {
         guard let urlHandler = urlTapHandler, let url = URL(string: stringURL) else {
-            delegate?.didSelectText(stringURL, type: .url)
+            delegate?.didSelect(stringURL, type: .url)
             return
         }
         urlHandler(url)
@@ -473,7 +474,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
 
     fileprivate func didTapMail(_ mail: String) {
         guard let mailHandler = mailTapHandler else {
-            delegate?.didSelectText(mail, type: .mail)
+            delegate?.didSelect(mail, type: .mail)
             return
         }
         mailHandler(mail)
@@ -482,7 +483,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
 
     fileprivate func didTap(_ element: String, for type: ActiveType) {
         guard let elementHandler = customTapHandlers[type] else {
-            delegate?.didSelectText(element, type: type)
+            delegate?.didSelect(element, type: type)
             return
         }
         elementHandler(element)

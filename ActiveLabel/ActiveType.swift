@@ -66,4 +66,3 @@ public func ==(lhs: ActiveType, rhs: ActiveType) -> Bool {
     default: return false
     }
 }
-

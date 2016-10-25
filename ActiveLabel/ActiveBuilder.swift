@@ -12,7 +12,7 @@ typealias ActiveFilterPredicate = ((String) -> Bool)
 
 struct ActiveBuilder {
 
-    static func createElements(_ type: ActiveType, from text: String, range: NSRange, filterPredicate: ActiveFilterPredicate?) -> [ElementTuple] {
+    static func createElements(type: ActiveType, from text: String, range: NSRange, filterPredicate: ActiveFilterPredicate?) -> [ElementTuple] {
         switch type {
         case .mention, .hashtag:
             return createElementsIgnoringFirstCharacter(from: text, for: type, range: range, filterPredicate: filterPredicate)
@@ -37,7 +37,7 @@ struct ActiveBuilder {
             let word = nsstring.substring(with: match.range)
                 .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
 
-            guard let maxLenght = maximumLenght , word.characters.count > maxLenght else {
+            guard let maxLenght = maximumLenght, word.characters.count > maxLenght else {
                 let range = maximumLenght == nil ? match.range : (text as NSString).range(of: word)
                 let element = ActiveElement.create(with: type, text: word)
                 elements.append((range, element, type))
@@ -54,7 +54,7 @@ struct ActiveBuilder {
         return (elements, text)
     }
 
-    fileprivate static func createElements(from text: String,
+    private static func createElements(from text: String,
                                             for type: ActiveType,
                                                 range: NSRange,
                                                 minLength: Int = 2,
@@ -75,7 +75,7 @@ struct ActiveBuilder {
         return elements
     }
 
-    fileprivate static func createElementsIgnoringFirstCharacter(from text: String,
+    private static func createElementsIgnoringFirstCharacter(from text: String,
                                                                   for type: ActiveType,
                                                                       range: NSRange,
                                                                       filterPredicate: ActiveFilterPredicate?) -> [ElementTuple] {
