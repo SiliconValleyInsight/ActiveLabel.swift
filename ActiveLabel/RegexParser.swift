@@ -18,8 +18,8 @@ struct RegexParser {
     static let mailPattern = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}"
  
     static func getElements(from text: String, with pattern: String, range: NSRange) -> [NSTextCheckingResult]{
-        guard let elementRegex = try? NSRegularExpression(pattern: pattern, options: [.CaseInsensitive]) else { return [] }
-        return elementRegex.matchesInString(text, options: [], range: range)
+        guard let elementRegex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        return elementRegex.matches(in: text, options: [], range: range)
     }
     
 }
